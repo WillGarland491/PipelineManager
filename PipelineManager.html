@@ -255,7 +255,6 @@
       { id: 145, name: "Devereaux Advances Behavioral Health", sector: "Healthcare", address: "", phone: "610 296 6847", contact1: "Peter Dero", contact2: "", email1: "mdero@devereux.org", email2: "", notes: [], lastContacted: null },
       { id: 146, name: "Rosemont Center for Behivioral Health", sector: "Healthcare", address: "", phone: "610 580 0400", contact1: "Carlos Daley", contact2: "", email1: "cdaley@rosemontcenterhc.com", email2: "", notes: [], lastContacted: null },
       { id: 147, name: "Providence Rehabilitation and Healthcare", sector: "Healthcare", address: "", phone: "610 626 8065", contact1: "Allen Herbert", contact2: "", email1: "hallen@provrehab.com", email2: "", notes: [], lastContacted: null },
-      { id: 148, name: "Delaware River and Bay Authority", sector: "Utility", address: "", phone: "", contact1: "", contact2: "", email1: "", email2: "", notes: [], lastContacted: null },
       { id: 149, name: "Chesapeake Bay Energy", sector: "Utility", address: "", phone: "", contact1: "", contact2: "", email1: "", email2: "", notes: [], lastContacted: null },
       { id: 150, name: "Aqua America", sector: "Utility", address: "", phone: "", contact1: "", contact2: "", email1: "", email2: "", notes: [], lastContacted: null },
       { id: 151, name: "Energy Transfer", sector: "Utility", address: "", phone: "", contact1: "", contact2: "", email1: "", email2: "", notes: [], lastContacted: null },
@@ -291,16 +290,14 @@
       { id: 181, name: "JLL Property Management", sector: "Private", address: "", phone: "", contact1: "", contact2: "", email1: "", email2: "", notes: [], lastContacted: null },
       { id: 182, name: "EMCOR Services", sector: "Private", address: "", phone: "", contact1: "", contact2: "", email1: "", email2: "", notes: [], lastContacted: null },
       { id: 183, name: "Brandywine Property Trust", sector: "Private", address: "", phone: "", contact1: "", contact2: "", email1: "", email2: "", notes: [], lastContacted: null },
-      { id: 184, name: "Buccini/Pollin", sector: "Private", address: "", phone: "", contact1: "", contact2: "", email1: "", email2: "", notes: [], lastContacted: null },
       { id: 185, name: "CBRE", sector: "Private", address: "", phone: "", contact1: "", contact2: "", email1: "", email2: "", notes: [], lastContacted: null },
       { id: 186, name: "Cadence Real Estate", sector: "Private", address: "", phone: "", contact1: "", contact2: "", email1: "", email2: "", notes: [], lastContacted: null },
       { id: 187, name: "Daylesford Abbey", sector: "Private", address: "", phone: "", contact1: "", contact2: "", email1: "", email2: "", notes: [], lastContacted: null },
-      { id: 188, name: "St. Aloysius", sector: "Private", address: "", phone: "", contact1: "", contact2: "", email1: "", email2: "", notes: [], lastContacted: null },
       { id: 189, name: "Immaculate Heart of Mary", sector: "Private", address: "", phone: "", contact1: "", contact2: "", email1: "", email2: "", notes: [], lastContacted: null },
       { id: 190, name: "St. Christopher\'s", sector: "Private", address: "", phone: "", contact1: "", contact2: "", email1: "", email2: "", notes: [], lastContacted: null }
     ];
 
-    const statusColors = { A: { bg: "#E8F5E9", border: "#4CAF50", text: "#2E7D32", badge: "#4CAF50" }, B: { bg: "#E3F2FD", border: "#2196F3", text: "#1565C0", badge: "#2196F3" }, C: { bg: "#FFF3E0", border: "#FF9800", text: "#E65100", badge: "#FF9800" } };
+    const statusColors = { A: { bg: "#E8F5E9", border: "#4CAF50", text: "#2E7D32", badge: "#4CAF50" }, B: { bg: "#E3F2FD", border: "#2196F3", text: "#1565C0", badge: "#2196F3" }, C: { bg: "#FFF3E0", border: "#FF9800", text: "#E65100", badge: "#FF9800" }, W: { bg: "#F1F8E9", border: "#558B2F", text: "#33691E", badge: "#558B2F" } };
     const typeColors = { "K-12": "#7B1FA2", "Municipal": "#00695C", "Private": "#37474F", "Utility": "#0277BD", "Healthcare": "#C62828", "Federal": "#4527A0", "Higher Ed": "#1565C0" };
     const fmt = (n) => n != null ? "$" + n.toLocaleString() : "—";
     const pct = (n) => n != null ? Math.round(n * 100) + "%" : "—";
@@ -438,7 +435,7 @@
           // Existing prospect — add note
           setProspects(prev => prev.map(p => p.id === completionModal.prospectId ? {
             ...p,
-            notes: [{ id: Date.now(), text: completionNote.trim(), date: today, timestamp: new Date().toLocaleString() }, ...p.notes],
+            notes: [{ id: Date.now(), text: completionNote.trim(), date: today, timestamp: new Date().toLocaleString() }, ...ensureNotesArray(p.notes)],
             lastContacted: today
           } : p));
           setTasks(prev => prev.map(t => t.id === completionModal.taskId ? { ...t, completed: true, completedAt: new Date().toLocaleString() } : t));
@@ -704,15 +701,32 @@
       const filtered = useMemo(() => {
         let list = prospects;
         if (sectorFilter !== "All") list = list.filter(p => p.sector === sectorFilter);
-        if (search) list = list.filter(p => p.name.toLowerCase().includes(search.toLowerCase()) || p.contact1.toLowerCase().includes(search.toLowerCase()) || p.contact2.toLowerCase().includes(search.toLowerCase()));
-        return [...list].sort((a, b) => {
-          if (sortBy === "name") return a.name.localeCompare(b.name);
-          if (sortBy === "contact") return (a.contact1||"").localeCompare(b.contact1||"");
-          if (sortBy === "sector") return (a.sector||"").localeCompare(b.sector||"") || a.name.localeCompare(b.name);
-          if (sortBy === "notes") return (b.notes?.length||0) - (a.notes?.length||0);
-          if (sortBy === "recent") { const aDate = a.lastContacted||""; const bDate = b.lastContacted||""; if (!aDate && !bDate) return 0; if (!aDate) return 1; if (!bDate) return -1; return bDate.localeCompare(aDate); }
-          return 0;
-        });
+        if (search) {
+          const s = search.toLowerCase();
+          list = list.filter(p =>
+            (p.name || '').toLowerCase().startsWith(s) ||
+            (p.contact1 || '').toLowerCase().startsWith(s) ||
+            (p.contact2 || '').toLowerCase().startsWith(s)
+          );
+          // Sort so name-prefix matches come first, then contact matches
+          list = [...list].sort((a, b) => {
+            const aName = (a.name || '').toLowerCase().startsWith(s) ? 0 : 1;
+            const bName = (b.name || '').toLowerCase().startsWith(s) ? 0 : 1;
+            if (aName !== bName) return aName - bName;
+            return a.name.localeCompare(b.name);
+          });
+        }
+        if (!search) {
+          list = [...list].sort((a, b) => {
+            if (sortBy === "name") return a.name.localeCompare(b.name);
+            if (sortBy === "contact") return (a.contact1||"").localeCompare(b.contact1||"");
+            if (sortBy === "sector") return (a.sector||"").localeCompare(b.sector||"") || a.name.localeCompare(b.name);
+            if (sortBy === "notes") return (b.notes?.length||0) - (a.notes?.length||0);
+            if (sortBy === "recent") { const aDate = a.lastContacted||""; const bDate = b.lastContacted||""; if (!aDate && !bDate) return 0; if (!aDate) return 1; if (!bDate) return -1; return bDate.localeCompare(aDate); }
+            return 0;
+          });
+        }
+        return list;
       }, [prospects, sectorFilter, search, sortBy]);
 
       const stats = useMemo(() => {
@@ -742,7 +756,7 @@
         const now = new Date();
         setProspects(prev => prev.map(p => p.id === prospectId ? {
           ...p,
-          notes: [{ id: Date.now(), text, date: today, timestamp: now.toLocaleString() }, ...p.notes]
+          notes: [{ id: Date.now(), text, date: today, timestamp: now.toLocaleString() }, ...ensureNotesArray(p.notes)]
         } : p));
         setNewNoteText(prev => ({ ...prev, [prospectId]: "" }));
       };
@@ -1140,12 +1154,29 @@
       const [newAccount, setNewAccount] = useState({ status: "C", name: "", type: "K-12", amount: "", likelihood: "", contact: "", contact2: "", phone: "", email: "", progress: "", notes: "" });
       const [showLog, setShowLog] = useState(false);
       const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+      const [showCompleted, setShowCompleted] = useState(false);
+      const [wonModal, setWonModal] = useState(null); // { accountId }
+      const [wonData, setWonData] = useState({ amount: '', closeDate: new Date().toISOString().split('T')[0], note: '' });
 
       const types = [...new Set(accounts.map(a => a.type))].sort();
-      const statusOrder = { A: 0, B: 1, C: 2 };
+      const statusOrder = { A: 0, B: 1, C: 2, W: 3 };
+
+      const completeSale = () => {
+        if (!wonModal) return;
+        const acct = accounts.find(a => a.id === wonModal.accountId);
+        const saleAmount = wonData.amount ? Number(wonData.amount) : (acct.amount || 0);
+        setChangeLog(prev => [{ time: new Date().toLocaleString(), account: acct.name, changes: [`Sale completed! Amount: $${saleAmount.toLocaleString()}${wonData.note ? ' — ' + wonData.note : ''}`] }, ...prev]);
+        setAccounts(prev => prev.map(a => a.id === wonModal.accountId ? { ...a, status: 'W', saleAmount, closeDate: wonData.closeDate, closeNote: wonData.note, amount: saleAmount } : a));
+        setWonModal(null);
+        setWonData({ amount: '', closeDate: new Date().toISOString().split('T')[0], note: '' });
+        setExpandedId(null);
+      };
+
+      const completedAccounts = useMemo(() => accounts.filter(a => a.status === 'W'), [accounts]);
+      const completedTotal = useMemo(() => completedAccounts.reduce((sum, a) => sum + (a.saleAmount || a.amount || 0), 0), [completedAccounts]);
 
       const filtered = useMemo(() => {
-        let list = accounts;
+        let list = accounts.filter(a => a.status !== 'W');
         if (filter !== "All") list = list.filter(a => a.status === filter);
         if (typeFilter !== "All") list = list.filter(a => a.type === typeFilter);
         if (search) list = list.filter(a => a.name.toLowerCase().includes(search.toLowerCase()) || a.contact.toLowerCase().includes(search.toLowerCase()) || a.notes.toLowerCase().includes(search.toLowerCase()));
@@ -1346,11 +1377,12 @@
                                 {acct.email && <div><span style={{ fontSize: 11, color: "#999" }}>Email:</span> <span style={{ fontSize: 13 }}>{acct.email}</span></div>}
                               </div>
                               {acct.notes && <div style={{ fontSize: 13, color: "#444", background: "rgba(255,255,255,0.7)", padding: "8px 12px", borderRadius: 6, marginBottom: 10 }}><span style={{ fontSize: 11, color: "#999" }}>Notes: </span>{acct.notes}</div>}
-                              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                              <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                                 <span style={{ fontSize: 11, color: "#999", lineHeight: "28px", marginRight: 4 }}>Move to:</span>
                                 {["A","B","C"].filter(s => s !== acct.status).map(s => (
                                   <button key={s} onClick={e => { e.stopPropagation(); moveStatus(acct.id, s); }} style={{ padding: "4px 14px", fontSize: 12, background: statusColors[s].badge, color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontWeight: 600 }}>{s}</button>
                                 ))}
+                                <button onClick={e => { e.stopPropagation(); setWonModal({ accountId: acct.id }); setWonData({ amount: acct.amount ? String(acct.amount) : '', closeDate: new Date().toISOString().split('T')[0], note: '' }); }} style={{ padding: "4px 14px", fontSize: 12, background: "#2E7D32", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontWeight: 600 }}>Won ✓</button>
                                 <div style={{ flex: 1 }} />
                                 {confirmDeleteId === acct.id ? (
                                   <div style={{ display: "flex", gap: 6, alignItems: "center" }}><span style={{ fontSize: 12, color: "#C62828", fontWeight: 500 }}>Delete this account?</span><button onClick={e => { e.stopPropagation(); deleteAccount(acct.id); }} style={{ padding: "4px 12px", fontSize: 12, background: "#C62828", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontWeight: 600 }}>Yes, Delete</button><button onClick={e => { e.stopPropagation(); setConfirmDeleteId(null); }} style={{ padding: "4px 12px", fontSize: 12, background: "#fff", color: "#666", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer" }}>Cancel</button></div>
@@ -1369,7 +1401,82 @@
             </table>
             {filtered.length === 0 && <div style={{ padding: 40, textAlign: "center", color: "#999" }}>No accounts match your filters</div>}
           </div>
-          <div style={{ marginTop: 12, fontSize: 12, color: "#999", textAlign: "center" }}>Showing {filtered.length} of {accounts.length} accounts</div>
+          <div style={{ marginTop: 12, fontSize: 12, color: "#999", textAlign: "center" }}>Showing {filtered.length} of {accounts.filter(a => a.status !== 'W').length} accounts</div>
+
+          {/* Won Sale Modal */}
+          {wonModal && (() => {
+            const acct = accounts.find(a => a.id === wonModal.accountId);
+            return (
+              <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }} onClick={() => setWonModal(null)}>
+                <div style={{ background: "#fff", borderRadius: 12, padding: 24, width: isMobile ? "90%" : 420, maxWidth: "95vw" }} onClick={e => e.stopPropagation()}>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: "#2E7D32", marginBottom: 4 }}>Complete Sale</div>
+                  <div style={{ fontSize: 14, color: "#666", marginBottom: 16 }}>{acct ? acct.name : ''}</div>
+                  <div style={{ marginBottom: 12 }}>
+                    <label style={{ fontSize: 12, color: "#666", display: "block", marginBottom: 4 }}>Sale Amount ($)</label>
+                    <input type="number" value={wonData.amount} onChange={e => setWonData(p => ({ ...p, amount: e.target.value }))} placeholder={acct && acct.amount ? String(acct.amount) : "0"} style={{ ...inputStyle, width: "100%", padding: "10px 12px", fontSize: 15 }} />
+                  </div>
+                  <div style={{ marginBottom: 12 }}>
+                    <label style={{ fontSize: 12, color: "#666", display: "block", marginBottom: 4 }}>Close Date</label>
+                    <input type="date" value={wonData.closeDate} onChange={e => setWonData(p => ({ ...p, closeDate: e.target.value }))} style={{ ...inputStyle, width: "100%", padding: "10px 12px", fontSize: 15 }} />
+                  </div>
+                  <div style={{ marginBottom: 16 }}>
+                    <label style={{ fontSize: 12, color: "#666", display: "block", marginBottom: 4 }}>Notes</label>
+                    <textarea value={wonData.note} onChange={e => setWonData(p => ({ ...p, note: e.target.value }))} rows={3} placeholder="Job details, scope of work, etc." style={{ ...inputStyle, width: "100%", resize: "vertical", padding: "10px 12px", fontSize: 14 }} />
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={completeSale} style={{ flex: 1, padding: "10px 20px", background: "#2E7D32", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 600, fontSize: 14 }}>Log Sale</button>
+                    <button onClick={() => setWonModal(null)} style={{ padding: "10px 20px", background: "#fff", color: "#666", border: "1px solid #ddd", borderRadius: 6, cursor: "pointer", fontSize: 14 }}>Cancel</button>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Completed Sales Section */}
+          <div style={{ marginTop: 24 }}>
+            <div onClick={() => setShowCompleted(!showCompleted)} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "12px 16px", background: "#fff", borderRadius: 10, border: "1.5px solid #2E7D32" }}>
+              <span style={{ fontSize: 18, color: "#2E7D32" }}>{showCompleted ? "▾" : "▸"}</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: "#2E7D32" }}>Completed Sales ({completedAccounts.length})</span>
+              <span style={{ fontSize: 13, color: "#666", marginLeft: 4 }}>{fmt(completedTotal)}</span>
+            </div>
+            {showCompleted && completedAccounts.length > 0 && (
+              <div style={{ background: "#fff", borderRadius: "0 0 10px 10px", border: "1px solid #e0e0e0", borderTop: "none", overflow: isMobile ? "auto" : "hidden" }}>
+                <table style={{ width: isMobile ? "max-content" : "100%", minWidth: isMobile ? 600 : "auto", borderCollapse: "collapse", fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: "#E8F5E9" }}>
+                      <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#2E7D32", fontSize: 12 }}>Account</th>
+                      <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#2E7D32", fontSize: 12 }}>Type</th>
+                      <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#2E7D32", fontSize: 12 }}>Sale Amount</th>
+                      <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#2E7D32", fontSize: 12 }}>Close Date</th>
+                      <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#2E7D32", fontSize: 12 }}>Notes</th>
+                      <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#2E7D32", fontSize: 12 }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {completedAccounts.map(acct => (
+                      <tr key={acct.id} style={{ borderBottom: "1px solid #f0f0f0" }}>
+                        <td style={{ padding: "10px 12px", fontWeight: 500 }}>{acct.name}</td>
+                        <td style={{ padding: "10px 12px" }}><span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 10, background: (typeColors[acct.type]||"#666") + "18", color: typeColors[acct.type]||"#666", fontWeight: 500 }}>{acct.type}</span></td>
+                        <td style={{ padding: "10px 12px", fontWeight: 600, color: "#2E7D32" }}>{fmt(acct.saleAmount || acct.amount)}</td>
+                        <td style={{ padding: "10px 12px", color: "#666" }}>{acct.closeDate || "—"}</td>
+                        <td style={{ padding: "10px 12px", color: "#444", maxWidth: 250, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{acct.closeNote || acct.notes || "—"}</td>
+                        <td style={{ padding: "10px 12px" }}>
+                          <button onClick={() => moveStatus(acct.id, 'A')} style={{ padding: "4px 10px", fontSize: 11, background: "#fff", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer", color: "#555" }}>Reopen</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div style={{ padding: "10px 16px", background: "#E8F5E9", borderTop: "1px solid #C8E6C9", display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 600 }}>
+                  <span style={{ color: "#2E7D32" }}>Total: {completedAccounts.length} sales</span>
+                  <span style={{ color: "#2E7D32" }}>{fmt(completedTotal)}</span>
+                </div>
+              </div>
+            )}
+            {showCompleted && completedAccounts.length === 0 && (
+              <div style={{ padding: 24, textAlign: "center", color: "#999", background: "#fff", borderRadius: "0 0 10px 10px", border: "1px solid #e0e0e0", borderTop: "none" }}>No completed sales yet. Use the "Won ✓" button to log your first sale.</div>
+            )}
+          </div>
         </div>
       );
     }
@@ -1397,7 +1504,38 @@
           const saved = localStorage.getItem('pipeline_prospects');
           if (saved) {
             const parsed = JSON.parse(saved);
-            return parsed.length > 0 ? parsed : initialProspects;
+            if (parsed.length > 0) {
+              // Normalize notes: convert legacy string format to array of objects
+              const normalized = parsed.map(p => ({
+                ...p,
+                notes: Array.isArray(p.notes) ? p.notes
+                  : (typeof p.notes === 'string' && p.notes.trim().length > 0)
+                    ? p.notes.split(' | ').map((text, i) => ({ id: Date.now() + i, text: text.trim(), date: '', timestamp: '' }))
+                    : []
+              }));
+              // Deduplicate: remove blank copies (same name, no contact/phone/email)
+              const nameGroups = {};
+              normalized.forEach(p => {
+                const key = (p.name || '').toLowerCase().trim();
+                if (!nameGroups[key]) nameGroups[key] = [];
+                nameGroups[key].push(p);
+              });
+              const deduped = [];
+              Object.values(nameGroups).forEach(group => {
+                if (group.length === 1) { deduped.push(group[0]); return; }
+                // Multiple entries with same name: keep all that have data, drop blank ones only if a data-rich version exists
+                const withData = group.filter(p => p.contact1 || p.phone || p.email1);
+                const blank = group.filter(p => !p.contact1 && !p.phone && !p.email1);
+                if (withData.length > 0) {
+                  withData.forEach(p => deduped.push(p));
+                  // Only keep blank copies if no data-rich version exists
+                } else {
+                  deduped.push(blank[0]); // Keep just one blank copy
+                }
+              });
+              return deduped;
+            }
+            return initialProspects;
           }
           return initialProspects;
         } catch(e) { return initialProspects; }
@@ -1430,22 +1568,50 @@
         localStorage.setItem('pipeline_sheetsUrl', sheetsUrl);
       }, [sheetsUrl]);
 
+      // Helper: ensure notes is always an array (handles legacy string format from Excel imports)
+      const ensureNotesArray = (notes) => {
+        if (Array.isArray(notes)) return notes;
+        if (typeof notes === 'string' && notes.trim().length > 0) {
+          return notes.split(' | ').map((text, i) => ({
+            id: Date.now() + i,
+            text: text.trim(),
+            date: '',
+            timestamp: ''
+          }));
+        }
+        return [];
+      };
+
       const syncToSheets = React.useCallback((accts, prosp, tsk, log) => {
         if (!sheetsUrl) return;
         setSyncStatus('syncing');
+        // Convert notes to arrays before sending (Apps Script expects arrays)
+        const fixedProspects = prosp.map(p => ({
+          ...p,
+          notes: ensureNotesArray(p.notes)
+        }));
         const payload = JSON.stringify({
           accounts: accts,
-          prospects: prosp,
+          prospects: fixedProspects,
           tasks: tsk,
           changeLog: log
         });
         fetch(sheetsUrl, {
           method: 'POST',
-          mode: 'no-cors',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: payload
-        }).then(() => {
-          setSyncStatus('success');
+        }).then(res => res.text()).then(text => {
+          try {
+            const result = JSON.parse(text);
+            if (result.status === 'success') {
+              setSyncStatus('success');
+            } else {
+              console.error('Sync error:', result.message);
+              setSyncStatus('error');
+            }
+          } catch(e) {
+            setSyncStatus('success'); // Non-JSON response, assume OK
+          }
           setTimeout(() => setSyncStatus('idle'), 3000);
         }).catch(() => {
           setSyncStatus('error');
@@ -1467,7 +1633,17 @@
             if (data.status === 'success') {
               if (data.tasks && data.tasks.length > 0) setTasks(data.tasks);
               if (data.accounts && data.accounts.length > 0) setAccounts(data.accounts);
-              if (data.prospects && data.prospects.length > 0) setProspects(data.prospects);
+              if (data.prospects && data.prospects.length > 0) {
+                // Normalize notes format from Sheets (may be arrays of strings or objects)
+                setProspects(data.prospects.map(p => ({
+                  ...p,
+                  notes: Array.isArray(p.notes) ? p.notes.map(n =>
+                    typeof n === 'string' ? { id: Date.now() + Math.random(), text: n, date: '', timestamp: '' } : n
+                  ) : (typeof p.notes === 'string' && p.notes.trim().length > 0)
+                    ? p.notes.split(' | ').map((text, i) => ({ id: Date.now() + i, text: text.trim(), date: '', timestamp: '' }))
+                    : []
+                })));
+              }
               if (data.changeLog && data.changeLog.length > 0) setChangeLog(data.changeLog);
               setRestoreStatus('success');
               setSyncStatus('success');
@@ -1607,7 +1783,11 @@
             row['Contact ' + (i + 3)] = ec.name || '';
             row['Email ' + (i + 3)] = ec.email || '';
           });
-          row['Notes'] = (p.notes || []).map(n => '[' + n.timestamp + '] ' + n.text).join(' | ');
+          row['Notes'] = (Array.isArray(p.notes) ? p.notes : []).map(n => {
+            if (typeof n === 'string') return n;
+            if (n.timestamp) return '[' + n.timestamp + '] ' + n.text;
+            return n.text || '';
+          }).join(' | ');
           row['Last Contacted'] = p.lastContacted || '';
           return row;
         });
