@@ -704,11 +704,9 @@
         if (search) {
           const s = search.toLowerCase();
           list = list.filter(p =>
-            (p.name || '').toLowerCase().startsWith(s) ||
-            (p.contact1 || '').toLowerCase().startsWith(s) ||
-            (p.contact2 || '').toLowerCase().startsWith(s)
+            (p.name || '').toLowerCase().includes(s)
           );
-          // Sort so name-prefix matches come first, then contact matches
+          // Sort so name-prefix matches come first
           list = [...list].sort((a, b) => {
             const aName = (a.name || '').toLowerCase().startsWith(s) ? 0 : 1;
             const bName = (b.name || '').toLowerCase().startsWith(s) ? 0 : 1;
@@ -1532,6 +1530,14 @@
                 } else {
                   deduped.push(blank[0]); // Keep just one blank copy
                 }
+              });
+              // Ensure unique IDs: if multiple prospects share an id, reassign
+              const seenIds = new Set();
+              deduped.forEach(p => {
+                if (seenIds.has(p.id)) {
+                  p.id = Date.now() + Math.floor(Math.random() * 100000) + seenIds.size;
+                }
+                seenIds.add(p.id);
               });
               return deduped;
             }
