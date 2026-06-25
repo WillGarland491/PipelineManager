@@ -316,6 +316,20 @@
       return isMobile;
     }
 
+    // Helper: ensure notes is always an array (handles legacy string format from Excel imports)
+    const ensureNotesArray = (notes) => {
+      if (Array.isArray(notes)) return notes;
+      if (typeof notes === 'string' && notes.trim().length > 0) {
+        return notes.split(' | ').map((text, i) => ({
+          id: Date.now() + i,
+          text: text.trim(),
+          date: '',
+          timestamp: ''
+        }));
+      }
+      return [];
+    };
+
     /* ================================================================
        TO-DO PAGE
        ================================================================ */
@@ -1573,20 +1587,6 @@
       useEffect(() => {
         localStorage.setItem('pipeline_sheetsUrl', sheetsUrl);
       }, [sheetsUrl]);
-
-      // Helper: ensure notes is always an array (handles legacy string format from Excel imports)
-      const ensureNotesArray = (notes) => {
-        if (Array.isArray(notes)) return notes;
-        if (typeof notes === 'string' && notes.trim().length > 0) {
-          return notes.split(' | ').map((text, i) => ({
-            id: Date.now() + i,
-            text: text.trim(),
-            date: '',
-            timestamp: ''
-          }));
-        }
-        return [];
-      };
 
       const syncToSheets = React.useCallback((accts, prosp, tsk, log) => {
         if (!sheetsUrl) return;
